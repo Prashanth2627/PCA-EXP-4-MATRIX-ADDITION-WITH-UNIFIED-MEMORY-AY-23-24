@@ -182,15 +182,12 @@ void checkResult(float *hostRef, float *gpuRef, const int N)
 __global__ void sumMatrixGPU(float *MatA, float *MatB, float *MatC, int nx,
                              int ny)
 {
-    
-
     unsigned int ix = blockIdx.x * blockDim.x + threadIdx.x;
     unsigned int iy = blockIdx.y * blockDim.y + threadIdx.y;
     unsigned int idx = iy * nx + ix;
 
-    if (ix < nx && iy < ny)
+    if (idx < nx * ny)
     {
-        
         MatC[idx] = MatA[idx] + MatB[idx];
     }
 
@@ -258,10 +255,13 @@ int main(int argc, char **argv)
     iStart = seconds();
 
 
+    sumMatrixGPU<<<grid, block>>>(A, B, gpuRef, nx, ny);
+
+
 
 
 //   Type your code here to launch your kernel
-    sumMatrixGPU<<<grid, block>>>(A, B, gpuRef, nx, ny);
+
 
 
 
@@ -372,15 +372,18 @@ inline double seconds()
 
 #endif // _COMMON_H
 
+#include <cuda_runtime.h>
+#include <stdio.h>
+#include <cuda_runtime.h>
+#include <stdio.h>
+
 void initialData(float *ip, const int size)
 {
     int i;
-
     for (i = 0; i < size; i++)
     {
         ip[i] = (float)( rand() & 0xFF ) / 10.0f;
     }
-
     return;
 }
 
@@ -430,15 +433,15 @@ void checkResult(float *hostRef, float *gpuRef, const int N)
 __global__ void sumMatrixGPU(float *MatA, float *MatB, float *MatC, int nx,
                              int ny)
 {
-
-
-
-   unsigned int ix = threadIdx.x + blockIdx.x * blockDim.x;
-    unsigned int iy = threadIdx.y + blockIdx.y * blockDim.y;
+    unsigned int ix = blockIdx.x * blockDim.x + threadIdx.x;
+    unsigned int iy = blockIdx.y * blockDim.y + threadIdx.y;
     unsigned int idx = iy * nx + ix;
 
-    if (ix < nx && iy < ny)
+    if (idx < nx * ny)
+    {
         MatC[idx] = MatA[idx] + MatB[idx];
+    }
+
 
 }
 
@@ -472,15 +475,13 @@ int main(int argc, char **argv)
     CHECK(cudaMallocManaged((void **)&gpuRef,  nBytes);  );
     CHECK(cudaMallocManaged((void **)&hostRef, nBytes););
 
+
     // initialize data at host side
     double iStart = seconds();
     initialData(A, nxy);
     initialData(B, nxy);
     double iElaps = seconds() - iStart;
     printf("initialization: \t %f sec\n", iElaps);
-
-    //memset(hostRef, 0, nBytes);
-    //memset(gpuRef, 0, nBytes);
 
     // add matrix at host side for result checks
     iStart = seconds();
@@ -496,16 +497,25 @@ int main(int argc, char **argv)
 
     // warm-up kernel, with unified memory all pages will migrate from host to
     // device
-   // sumMatrixGPU<<<grid, block>>>(A, B, gpuRef, 1, 1);
+    sumMatrixGPU<<<grid, block>>>(A, B, gpuRef, 1, 1);
 
     // after warm-up, time with unified memory
     iStart = seconds();
 
+
     sumMatrixGPU<<<grid, block>>>(A, B, gpuRef, nx, ny);
 
 
-    iElaps = seconds() - iStart;
+
+
+//   Type your code here to launch your kernel
+
+
+
+
+
     CHECK(cudaDeviceSynchronize());
+    iElaps = seconds() - iStart;
     printf("sumMatrix on gpu :\t %f sec <<<(%d,%d), (%d,%d)>>> \n", iElaps,
             grid.x, grid.y, block.x, block.y);
 
@@ -530,10 +540,13 @@ int main(int argc, char **argv)
 
 
 ## OUTPUT:
-<img width="1135" height="720" alt="image" src="https://github.com/user-attachments/assets/b07077e8-9d86-4213-bd15-ce77c3f43ebd" />
+### unifmem1.cu
+<img width="1033" height="547" alt="image" src="https://github.com/user-attachments/assets/74587124-fbb0-4573-b00f-208df21bcc35" />
+
+### unifmem2.cu
+<img width="975" height="564" alt="image" src="https://github.com/user-attachments/assets/2cb111fc-442d-4e5a-bfdb-35f6888286c4" />
 
 
-<img width="1125" height="722" alt="image" src="https://github.com/user-attachments/assets/0749e088-7c2e-4b3b-965c-cc1c936cb777" />
 
 ## RESULT:
 Thus the program has been executed by using unified memory. It is observed that removing memset function has given less GPU execution time.
